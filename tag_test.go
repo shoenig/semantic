@@ -39,12 +39,16 @@ func Test_Parse(t *testing.T) {
 	try("v1.2.3-alpha2", New2(1, 2, 3, "alpha2"), true)
 	try("1.2.3", Tag{}, false)       // missing v
 	try("v1.2.3_beta", Tag{}, false) // dash required for extension
+	try("v0.8.2-0.20190227000051-27936f6d90f9", New2(0, 8, 2, "0.20190227000051-27936f6d90f9"), true)
+	try("v2.0.0+incompatible", New3(2, 0, 0, "", "incompatible"), true)
+	try("v2.0.0-pre+incompatible", New3(2, 0, 0, "pre", "incompatible"), true)
 }
 
 func Test_String(t *testing.T) {
-	tag := New(1, 2, 3)
-	s := tag.String()
-	require.Equal(t, "v1.2.3", s)
+	require.Equal(t, "v1.2.3", New(1, 2, 3).String())
+	require.Equal(t, "v0.8.2-0.20190227000051-27936f6d90f9", New2(0, 8, 2, "0.20190227000051-27936f6d90f9").String())
+	require.Equal(t, "v2.0.0+incompatible", New3(2, 0, 0, "", "incompatible").String())
+	require.Equal(t, "v2.0.0-pre+incompatible", New3(2, 0, 0, "pre", "incompatible").String())
 }
 
 func Test_String_extension(t *testing.T) {

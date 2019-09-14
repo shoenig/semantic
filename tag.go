@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	semverRe = regexp.MustCompile(`^v(?P<major>[0-9]+)\.(?P<minor>[0-9]+)\.(?P<patch>[0-9]+)(-(?P<ext>[a-zA-Z0-9_-]+))?$`)
+	semverRe = regexp.MustCompile(`^v(?P<major>[0-9]+)\.(?P<minor>[0-9]+)\.(?P<patch>[0-9]+)(-(?P<ext>[a-zA-Z0-9._-]+))?(\+(?P<bm>[a-zA-Z0-9._-]+)?)?$`)
 )
 
 func New(major, minor, patch int) Tag {
@@ -26,6 +26,16 @@ func New2(major, minor, patch int, extension string) Tag {
 		Minor:     minor,
 		Patch:     patch,
 		Extension: extension,
+	}
+}
+
+func New3(major, minor, patch int, extension, buildMetadata string) Tag {
+	return Tag{
+		Major:     major,
+		Minor:     minor,
+		Patch:     patch,
+		Extension: extension,
+		BuildMetadata: buildMetadata,
 	}
 }
 
@@ -48,12 +58,14 @@ func Parse(s string) (Tag, bool) {
 	}
 
 	extension := matches["ext"]
+	buildMetadata := matches["bm"]
 
 	return Tag{
 		Major:     number(major),
 		Minor:     number(minor),
 		Patch:     number(patch),
 		Extension: extension,
+		BuildMetadata: buildMetadata,
 	}, true
 }
 
@@ -70,6 +82,7 @@ type Tag struct {
 	Minor     int
 	Patch     int
 	Extension string
+	BuildMetadata string
 }
 
 func (t Tag) String() string {
@@ -80,11 +93,19 @@ func (t Tag) String() string {
 		t.Patch,
 	)
 
-	if t.Extension == "" {
+	if t.Extension == "" && t.BuildMetadata == "" {
 		return base
 	}
 
-	return base + "-" + t.Extension
+	if t.BuildMetadata == "" {
+		return base + "-" + t.Extension
+	}
+
+	if t.Extension == "" {
+		return base + "+" + t.BuildMetadata
+	}
+
+	return base + "-" + t.Extension + "+" + t.BuildMetadata
 }
 
 func (t Tag) Base() Tag {
@@ -96,6 +117,8 @@ func (t Tag) IsBase() bool {
 }
 
 func (t Tag) Less(o Tag) bool {
+	// build-metadata should be explicitly ignored for comparisons ; see https://semver.org/#spec-item-10
+
 	if t.Major < o.Major {
 		return true
 	} else if t.Major > o.Major {
