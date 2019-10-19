@@ -1,42 +1,84 @@
+// Package semantic provides utilities for parsing and creating semver2.0 tags.
+//
+// For more information, see https://semver.org/
 package semantic // import "gophers.dev/pkgs/semantic"
 
 import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"gophers.dev/pkgs/regexplus"
 )
 
 var (
-	semverRe = regexp.MustCompile(`^v(?P<major>[0-9]+)\.(?P<minor>[0-9]+)\.(?P<patch>[0-9]+)(-(?P<ext>[a-zA-Z0-9._-]+))?(\+(?P<bm>[a-zA-Z0-9._-]+)?)?$`)
+	semverRe = regexp.MustCompile(`^v(?P<major>[0-9]+)\.(?P<minor>[0-9]+)\.(?P<patch>[0-9]+)(-(?P<pr>[a-zA-Z0-9._-]+))?(\+(?P<bm>[a-zA-Z0-9._-]+)?)?$`)
 )
 
+// New creates a new Tag with the most basic amount of information, which includes
+// the major, minor, and patch version levels.
+//
+// Examples of a basic tag:
+//   v1.0.0
+//   v3.20.100
 func New(major, minor, patch int) Tag {
+	return New3(major, minor, patch, "", "")
+}
+
+// New2 creates a new Tag with the basic version information, plus an additional
+// associated pre-release suffix.
+//
+// The pre-release information is appended to the end of a version string,
+// denoted with a '-' prefix.
+//
+// Examples of a tag with "pre-release" information:
+//   v1.0.0-alpha
+//   v1.0.0-rc1
+func New2(major, minor, patch int, preRelease string) Tag {
+	return New3(major, minor, patch, preRelease, "")
+}
+
+// New3 creates a new Tag with the basic version information, plus an additional
+// associated pre-release suffix plus an additional build-metadata suffix.
+//
+// The pre-release information is appended to the end of a version string, but
+// before the build-metadata, denoted with a '-' prefix.
+//
+// The build-metadata information is appended to the end of a version string,
+// denoted with a '+' prefix.
+//
+// Examples of a tag with "pre-release" and "build-metadata" information:
+//   v1.0.0-beta+exp.sha.5114f85
+//   v1.0.0-rc1+20130313144700
+//   1.0.0-alpha+001
+func New3(major, minor, patch int, preRelease, buildMetadata string) Tag {
 	return Tag{
-		Major: major,
-		Minor: minor,
-		Patch: patch,
+		Major:         major,
+		Minor:         minor,
+		Patch:         patch,
+		PreRelease:    normalize(preRelease),
+		BuildMetadata: normalize(buildMetadata),
 	}
 }
 
-func New2(major, minor, patch int, extension string) Tag {
-	return Tag{
-		Major:     major,
-		Minor:     minor,
-		Patch:     patch,
-		Extension: extension,
-	}
+// New4 creates a new Tag with basic version information, plus an additional
+// associated build-metadata suffix.
+//
+// The build-metadata information is appended to the end of a version string,
+// denoted with a '+' prefix.
+//
+// Examples of a tag with "build-metadata" information:
+//   v1.0.0+exp.sha.5114f85
+//   v1.0.0+20130313144700
+func New4(major, minor, patch int, buildMetadata string) Tag {
+	return New3(major, minor, patch, "", buildMetadata)
 }
 
-func New3(major, minor, patch int, extension, buildMetadata string) Tag {
-	return Tag{
-		Major:     major,
-		Minor:     minor,
-		Patch:     patch,
-		Extension: extension,
-		BuildMetadata: buildMetadata,
-	}
+func normalize(s string) string {
+	noDash := strings.TrimPrefix(s, "-")
+	noPlus := strings.TrimPrefix(noDash, "+")
+	return noPlus
 }
 
 func Parse(s string) (Tag, bool) {
@@ -57,14 +99,14 @@ func Parse(s string) (Tag, bool) {
 		return Tag{}, false
 	}
 
-	extension := matches["ext"]
+	preRelease := matches["pr"]
 	buildMetadata := matches["bm"]
 
 	return Tag{
-		Major:     number(major),
-		Minor:     number(minor),
-		Patch:     number(patch),
-		Extension: extension,
+		Major:         number(major),
+		Minor:         number(minor),
+		Patch:         number(patch),
+		PreRelease:    preRelease,
 		BuildMetadata: buildMetadata,
 	}, true
 }
@@ -78,10 +120,10 @@ func number(s string) int {
 }
 
 type Tag struct {
-	Major     int
-	Minor     int
-	Patch     int
-	Extension string
+	Major         int
+	Minor         int
+	Patch         int
+	PreRelease    string
 	BuildMetadata string
 }
 
@@ -93,19 +135,19 @@ func (t Tag) String() string {
 		t.Patch,
 	)
 
-	if t.Extension == "" && t.BuildMetadata == "" {
+	if t.PreRelease == "" && t.BuildMetadata == "" {
 		return base
 	}
 
 	if t.BuildMetadata == "" {
-		return base + "-" + t.Extension
+		return base + "-" + t.PreRelease
 	}
 
-	if t.Extension == "" {
+	if t.PreRelease == "" {
 		return base + "+" + t.BuildMetadata
 	}
 
-	return base + "-" + t.Extension + "+" + t.BuildMetadata
+	return base + "-" + t.PreRelease + "+" + t.BuildMetadata
 }
 
 func (t Tag) Base() Tag {
@@ -113,17 +155,18 @@ func (t Tag) Base() Tag {
 }
 
 func (t Tag) IsBase() bool {
-	return t.Extension == ""
+	return t.PreRelease == ""
 }
 
 func (t Tag) Less(o Tag) bool {
 	// build-metadata should be explicitly ignored for comparisons ; see https://semver.org/#spec-item-10
+	// pre-release is NOT ignored ;
 
 	if t.Major < o.Major {
 		return true
 	} else if t.Major > o.Major {
 		return false
-	} else if extAlessB(t.Extension, o.Extension) {
+	} else if prAlessB(t.PreRelease, o.PreRelease) {
 		return true
 	}
 
@@ -131,7 +174,7 @@ func (t Tag) Less(o Tag) bool {
 		return true
 	} else if t.Minor > o.Minor {
 		return false
-	} else if extAlessB(t.Extension, o.Extension) {
+	} else if prAlessB(t.PreRelease, o.PreRelease) {
 		return true
 	}
 
@@ -139,7 +182,7 @@ func (t Tag) Less(o Tag) bool {
 		return true
 	} else if t.Patch > o.Patch {
 		return false
-	} else if extAlessB(t.Extension, o.Extension) {
+	} else if prAlessB(t.PreRelease, o.PreRelease) {
 		return true
 	}
 
@@ -149,7 +192,7 @@ func (t Tag) Less(o Tag) bool {
 // return true if a's extension precedes b's extension
 // normally this is ascibetical, however the empty string
 // is a special case that is higher priority than all else
-func extAlessB(a, b string) bool {
+func prAlessB(a, b string) bool {
 	if a == "" {
 		return false
 	}
