@@ -16,13 +16,34 @@ func Test_New(t *testing.T) {
 	}, tag)
 }
 
-func Test_Extended(t *testing.T) {
-	tag := New2(1, 2, 3, "alpha1")
+func Test_New2(t *testing.T) {
+	tag := New2(1, 2, 3, "rc1")
 	require.Equal(t, Tag{
-		Major:     1,
-		Minor:     2,
-		Patch:     3,
-		Extension: "alpha1",
+		Major:      1,
+		Minor:      2,
+		Patch:      3,
+		PreRelease: "rc1",
+	}, tag)
+}
+
+func Test_New3(t *testing.T) {
+	tag := New3(1, 2, 3, "alpha", "linux")
+	require.Equal(t, Tag{
+		Major:         1,
+		Minor:         2,
+		Patch:         3,
+		PreRelease:    "alpha",
+		BuildMetadata: "linux",
+	}, tag)
+}
+
+func Test_New4(t *testing.T) {
+	tag := New4(1, 2, 3, "abc123")
+	require.Equal(t, Tag{
+		Major:         1,
+		Minor:         2,
+		Patch:         3,
+		BuildMetadata: "abc123",
 	}, tag)
 }
 
@@ -40,21 +61,15 @@ func Test_Parse(t *testing.T) {
 	try("1.2.3", Tag{}, false)       // missing v
 	try("v1.2.3_beta", Tag{}, false) // dash required for extension
 	try("v0.8.2-0.20190227000051-27936f6d90f9", New2(0, 8, 2, "0.20190227000051-27936f6d90f9"), true)
-	try("v2.0.0+incompatible", New3(2, 0, 0, "", "incompatible"), true)
+	try("v2.0.0+incompatible", New4(2, 0, 0, "incompatible"), true)
 	try("v2.0.0-pre+incompatible", New3(2, 0, 0, "pre", "incompatible"), true)
 }
 
 func Test_String(t *testing.T) {
 	require.Equal(t, "v1.2.3", New(1, 2, 3).String())
 	require.Equal(t, "v0.8.2-0.20190227000051-27936f6d90f9", New2(0, 8, 2, "0.20190227000051-27936f6d90f9").String())
-	require.Equal(t, "v2.0.0+incompatible", New3(2, 0, 0, "", "incompatible").String())
+	require.Equal(t, "v2.0.0+incompatible", New4(2, 0, 0, "incompatible").String())
 	require.Equal(t, "v2.0.0-pre+incompatible", New3(2, 0, 0, "pre", "incompatible").String())
-}
-
-func Test_String_extension(t *testing.T) {
-	tag := New2(1, 2, 3, "alpha2")
-	s := tag.String()
-	require.Equal(t, "v1.2.3-alpha2", s)
 }
 
 func Test_Sort_BySemver(t *testing.T) {
@@ -83,7 +98,7 @@ func Test_Sort_BySemver(t *testing.T) {
 	}, list)
 }
 
-func Test_Sort_BySemver_Extended_sameV(t *testing.T) {
+func Test_Sort_BySemver_PreRelease_sameV(t *testing.T) {
 	list := []Tag{
 		New2(1, 1, 1, "bbb"),
 		New2(1, 1, 1, "ddd"),
