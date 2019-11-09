@@ -5,5 +5,7 @@ github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZN
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.3.0 h1:TivCn/peBQ7UY8ooIcPgZFpTNSz0Q2U6UrFlUfqbe0Q=
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
+gophers.dev/pkgs/ignore v0.2.0 h1:JH2NgFni0vbB09fO7aFmgQnZUyRzk1Us5Bu56K4jPp8=
+gophers.dev/pkgs/ignore v0.2.0/go.mod h1:HwTn4Fc9oicp2TxFV/8P0CswwfsVQczZvG6ZTy2TRXA=
 gophers.dev/pkgs/regexplus v0.2.0 h1:HXUUh80mVBcRKx4shSS1xIOW0t+Akz+TRo3sgUylEvI=
 gophers.dev/pkgs/regexplus v0.2.0/go.mod h1:K4ctjcxPeUcN0wpFcQUavX4jygQC8pMEBLnEklP7Iio=

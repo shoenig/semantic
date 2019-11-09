@@ -168,48 +168,154 @@ func (t Tag) IsBase() bool {
 
 func (t Tag) Less(o Tag) bool {
 	// build-metadata should be explicitly ignored for comparisons ; see https://semver.org/#spec-item-10
-	// pre-release is NOT ignored ;
+	// pre-release is NOT ignored ; see https://semver.org/#spec-item-11
 
 	if t.Major < o.Major {
 		return true
 	} else if t.Major > o.Major {
 		return false
-	} else if prAlessB(t.PreRelease, o.PreRelease) {
-		return true
 	}
 
 	if t.Minor < o.Minor {
 		return true
 	} else if t.Minor > o.Minor {
 		return false
-	} else if prAlessB(t.PreRelease, o.PreRelease) {
-		return true
 	}
 
 	if t.Patch < o.Patch {
 		return true
 	} else if t.Patch > o.Patch {
 		return false
-	} else if prAlessB(t.PreRelease, o.PreRelease) {
-		return true
 	}
 
-	return false
+	return cmpPreRelease(t.PreRelease, o.PreRelease)
 }
 
-// return true if a's extension precedes b's extension
-// normally this is ascibetical, however the empty string
-// is a special case that is higher priority than all else
-func prAlessB(a, b string) bool {
+// compare pre-release labels
+//
+// Precedence for two pre-release versions with the same major, minor, and patch
+// version MUST be determined by comparing each dot separated identifier from left
+// to right until a difference is found as follows: identifiers consisting of
+// only digits are compared numerically and identifiers with letters or hyphens
+// are compared lexically in ASCII sort order. Numeric identifiers always have
+// lower precedence than non-numeric identifiers. A larger set of pre-release
+// fields has a higher precedence than a smaller set, if all of the preceding
+// identifiers are equal.
+//
+// e.g. alpha < alpha.1 < alpha.beta < beta < beta.2 < beta.11 < rc.1 < 1.0.0
+func cmpPreRelease(a, b string) bool {
 	if a == "" {
+		// if a is not a pre-release, it is a final version and goes last
 		return false
 	}
 
 	if b == "" {
+		// if b is not a pre-release, it is a final version and goes last
 		return true
 	}
 
-	return a < b
+	A := strings.Split(a, ".")
+	B := strings.Split(b, ".")
+
+	return cmpChunks(A, B)
+}
+
+func cmpChunks(a, b []string) bool {
+	lenA := len(a)
+	lenB := len(b)
+	end := min(lenA, lenB)
+	for i := 0; i < end; i++ {
+		A := a[i]
+		B := b[i]
+		switch cmp := cmpChunk(A, B); cmp {
+		case 0:
+			continue
+		case -1:
+			return true
+		case 1:
+			return false
+		}
+	}
+
+	// they're the same until one of them ends
+	return lenA < lenB
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// returns:
+//   -1 if a < b
+//    0 if a == b
+//    1 if a > b
+func cmpChunk(a, b string) int {
+	aIsNumber := isNumeric(a)
+	bIsNumber := isNumeric(b)
+
+	// both are numbers, compare numerically
+	if aIsNumber && bIsNumber {
+		return cmpNumeric(a, b)
+	}
+
+	// both are strings, compare lexically
+	if !aIsNumber && !bIsNumber {
+		return cmpStrings(a, b)
+	}
+
+	// number takes precedence over string
+	if aIsNumber && !bIsNumber {
+		return -1
+	}
+
+	// number takes precedence over string
+	// !aIsNumber && bIsNumber
+	return 1
+
+}
+
+func cmpNumeric(a, b string) int {
+	aNum, err := strconv.Atoi(a)
+	if err != nil {
+		panic("there is a bug in this program")
+	}
+
+	bNum, err := strconv.Atoi(b)
+	if err != nil {
+		panic("there is a bug in this program")
+	}
+
+	if aNum < bNum {
+		return -1
+	}
+
+	if aNum > bNum {
+		return 1
+	}
+
+	return 0
+
+}
+
+func cmpStrings(a, b string) int {
+	if a < b {
+		return -1
+	}
+
+	if a > b {
+		return 1
+	}
+
+	return 0
+}
+
+var numberRe = regexp.MustCompile(`^[[:digit:]]+$`)
+
+func isNumeric(s string) bool {
+	return numberRe.MatchString(s)
 }
 
 type BySemver []Tag
