@@ -13,7 +13,15 @@ import (
 )
 
 var (
-	semverRe = regexp.MustCompile(`^v(?P<major>[0-9]+)\.(?P<minor>[0-9]+)\.(?P<patch>[0-9]+)(-(?P<pr>[a-zA-Z0-9._-]+))?(\+(?P<bm>[a-zA-Z0-9._-]+)?)?$`)
+	// Unlike the official example regexp given, this one enforces the
+	// 'v' prefix, which is always required in Go module version strings.
+	//
+	// The old regexp used was lenient around having sensible numbers. It would
+	// allow things like "v00.00.00", whereas the new expression does not.
+	//
+	// The example regexp is available at
+	// https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
+	semverRe = regexp.MustCompile(`^v(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)(?:-(?P<pr>(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?P<bm>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$`)
 )
 
 // New creates a new Tag with the most basic amount of information, which includes
