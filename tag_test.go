@@ -1,10 +1,17 @@
 package semantic
 
 import (
+	"bufio"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gophers.dev/pkgs/ignore"
 )
 
 func Test_New(t *testing.T) {
@@ -98,22 +105,132 @@ func Test_Sort_BySemver(t *testing.T) {
 	}, list)
 }
 
-func Test_Sort_BySemver_PreRelease_sameV(t *testing.T) {
-	list := []Tag{
-		New2(1, 1, 1, "bbb"),
-		New2(1, 1, 1, "ddd"),
-		New(1, 1, 1),
-		New2(1, 1, 1, "aaa"),
-		New2(1, 1, 1, "ccc"),
+func Test_cmpChunk(t *testing.T) {
+	try := func(a, b string, exp int) {
+		result := cmpChunk(a, b)
+		require.Equal(t, exp, result)
 	}
 
-	sort.Sort(sort.Reverse(BySemver(list)))
+	try("alpha", "alpha", 0)
+	try("alpha", "beta", -1)
+	try("beta", "alpha", 1)
 
-	require.Equal(t, []Tag{
+	try("alpha", "alpha-1", -1)
+	try("alpha-1", "alpha", 1)
+
+	try("1", "1", 0)
+	try("10", "1", 1)
+	try("1", "10", -1)
+
+	try("10", "2", 1)
+	try("2", "10", -1)
+
+	try("alpha", "999999999", 1)
+	try("999999999", "alpha", -1)
+}
+
+func Test_cmpPre(t *testing.T) {
+	try := func(a, b string, exp bool) {
+		result := cmpPreRelease(a, b)
+		require.Equal(t, exp, result)
+	}
+
+	try("", "alpha", false)
+	try("alpha", "", true)
+
+	try("alpha", "alpha.1", true)
+	try("alpha.1", "alpha", false)
+
+	try("alpha.1", "alpha.beta", true)
+	try("alpha.beta", "alpha.1", false)
+
+	try("alpha.beta", "beta", true)
+	try("beta", "alpha.beta", false)
+
+	try("beta", "beta.2", true)
+	try("beta.2", "beta", false)
+
+	try("beta.2", "beta.11", true)
+	try("beta.11", "beta.2", false)
+
+	try("beta.11", "rc.1", true)
+	try("rc.1", "beta.11", false)
+}
+
+// Example: 1.0.0-alpha < 1.0.0-alpha.1 < 1.0.0-alpha.beta < 1.0.0-beta < 1.0.0-beta.2 < 1.0.0-beta.11 < 1.0.0-rc.1 < 1.0.0
+func Test_Sort_BySemver_preReleases(t *testing.T) {
+	expected := []Tag{
+		New2(1, 1, 1, "alpha"),
+		New2(1, 1, 1, "alpha.1"),
+		New2(1, 1, 1, "alpha.beta"),
+		New2(1, 1, 1, "beta"),
+		New2(1, 1, 1, "beta.2"),
+		New2(1, 1, 1, "beta.11"),
+		New2(1, 1, 1, "rc.1"),
+		New(1, 1, 1), // non-prerelease tags are always highest
+	}
+
+	tags := []Tag{
+		New2(1, 1, 1, "alpha.1"),
 		New(1, 1, 1),
-		New2(1, 1, 1, "ddd"),
-		New2(1, 1, 1, "ccc"),
-		New2(1, 1, 1, "bbb"),
-		New2(1, 1, 1, "aaa"),
-	}, list)
+		New2(1, 1, 1, "alpha"),
+		New2(1, 1, 1, "beta.11"),
+		New2(1, 1, 1, "beta.2"),
+		New2(1, 1, 1, "rc.1"),
+		New2(1, 1, 1, "beta"),
+		New2(1, 1, 1, "alpha.beta"),
+	}
+
+	sort.Sort(BySemver(tags))
+
+	require.Equal(t, expected, tags)
+}
+
+func load(t *testing.T, filename string) []Tag {
+	f, err := os.Open(filename)
+	require.NoError(t, err)
+	defer ignore.Close(f)
+
+	return parse(t, f)
+}
+
+func parse(t *testing.T, r io.Reader) []Tag {
+	var tags []Tag
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if tag, ok := Parse(line); ok {
+			tags = append(tags, tag)
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		t.Error("scan lines:", err)
+	}
+	return tags
+}
+
+func testFile(t *testing.T, input, expected string) {
+	orig := load(t, filepath.Join("hack", input))
+	exp := load(t, filepath.Join("hack", expected))
+
+	result := make([]Tag, len(orig))
+	copy(result, orig)
+	sort.Sort(BySemver(result))
+
+	for i := 0; i < len(orig); i++ {
+		a, b, c := orig[i], exp[i], result[i]
+		triple := fmt.Sprintf("(%s, %s | %s)", b, c, a)
+		t.Logf("triple[%d]: %s", i, triple)
+		if b != c {
+			t.Errorf("  out of order tag %s", triple)
+		}
+	}
+}
+
+func Test_Sort_nomad(t *testing.T) {
+	testFile(t, "nomad.orig.txt", "nomad.exp.txt")
+}
+
+func Test_Sort_consul(t *testing.T) {
+	testFile(t, "consul.orig.txt", "consul.exp.txt")
 }
