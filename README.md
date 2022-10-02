@@ -3,6 +3,7 @@ semantic
 
 Create and Parse [SemVer 2.0](https://semver.org/) tags in Go
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/shoenig/semantic.svg)](https://pkg.go.dev/github.com/shoenig/semantic)
 [![GitHub](https://img.shields.io/github/license/shoenig/semantic.svg)](LICENSE)
 
 # Project Overview
