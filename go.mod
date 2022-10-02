@@ -1,4 +1,4 @@
-module gophers.dev/pkgs/semantic
+module github.com/shoenig/semantic
 
 go 1.19
 
