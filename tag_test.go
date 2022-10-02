@@ -10,13 +10,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-	"gophers.dev/pkgs/ignore"
+	"github.com/shoenig/ignore"
+	"github.com/shoenig/test/must"
 )
 
 func Test_New(t *testing.T) {
 	tag := New(1, 2, 3)
-	require.Equal(t, Tag{
+	must.Eq(t, Tag{
 		Major: 1,
 		Minor: 2,
 		Patch: 3,
@@ -25,7 +25,7 @@ func Test_New(t *testing.T) {
 
 func Test_New2(t *testing.T) {
 	tag := New2(1, 2, 3, "rc1")
-	require.Equal(t, Tag{
+	must.Eq(t, Tag{
 		Major:      1,
 		Minor:      2,
 		Patch:      3,
@@ -35,7 +35,7 @@ func Test_New2(t *testing.T) {
 
 func Test_New3(t *testing.T) {
 	tag := New3(1, 2, 3, "alpha", "linux")
-	require.Equal(t, Tag{
+	must.Eq(t, Tag{
 		Major:         1,
 		Minor:         2,
 		Patch:         3,
@@ -46,7 +46,7 @@ func Test_New3(t *testing.T) {
 
 func Test_New4(t *testing.T) {
 	tag := New4(1, 2, 3, "abc123")
-	require.Equal(t, Tag{
+	must.Eq(t, Tag{
 		Major:         1,
 		Minor:         2,
 		Patch:         3,
@@ -57,26 +57,26 @@ func Test_New4(t *testing.T) {
 func Test_Parse(t *testing.T) {
 	try := func(s string, exp Tag, expOK bool) {
 		result, ok := Parse(s)
-		require.Equal(t, expOK, ok)
-		require.Equal(t, exp, result)
+		must.Eq(t, expOK, ok)
+		must.Eq(t, exp, result)
 	}
 
 	try("v1.3.5", New(1, 3, 5), true)
 	try("v111.222.333", New(111, 222, 333), true)
 	try("v1.2.3-alpha", New2(1, 2, 3, "alpha"), true)
 	try("v1.2.3-alpha2", New2(1, 2, 3, "alpha2"), true)
-	try("1.2.3", Tag{}, false)       // missing v
-	try("v1.2.3_beta", Tag{}, false) // dash required for extension
+	try("1.2.3", empty, false)       // missing v
+	try("v1.2.3_beta", empty, false) // dash required for extension
 	try("v0.8.2-0.20190227000051-27936f6d90f9", New2(0, 8, 2, "0.20190227000051-27936f6d90f9"), true)
 	try("v2.0.0+incompatible", New4(2, 0, 0, "incompatible"), true)
 	try("v2.0.0-pre+incompatible", New3(2, 0, 0, "pre", "incompatible"), true)
 }
 
 func Test_String(t *testing.T) {
-	require.Equal(t, "v1.2.3", New(1, 2, 3).String())
-	require.Equal(t, "v0.8.2-0.20190227000051-27936f6d90f9", New2(0, 8, 2, "0.20190227000051-27936f6d90f9").String())
-	require.Equal(t, "v2.0.0+incompatible", New4(2, 0, 0, "incompatible").String())
-	require.Equal(t, "v2.0.0-pre+incompatible", New3(2, 0, 0, "pre", "incompatible").String())
+	must.Eq(t, "v1.2.3", New(1, 2, 3).String())
+	must.Eq(t, "v0.8.2-0.20190227000051-27936f6d90f9", New2(0, 8, 2, "0.20190227000051-27936f6d90f9").String())
+	must.Eq(t, "v2.0.0+incompatible", New4(2, 0, 0, "incompatible").String())
+	must.Eq(t, "v2.0.0-pre+incompatible", New3(2, 0, 0, "pre", "incompatible").String())
 }
 
 func Test_Sort_BySemver(t *testing.T) {
@@ -92,7 +92,7 @@ func Test_Sort_BySemver(t *testing.T) {
 		New(1, 7, 0),
 	}
 	sort.Sort(sort.Reverse(BySemver(list)))
-	require.Equal(t, []Tag{
+	must.Eq(t, []Tag{
 		New(3, 3, 3),
 		New(3, 3, 1),
 		New(3, 1, 2),
@@ -108,7 +108,7 @@ func Test_Sort_BySemver(t *testing.T) {
 func Test_cmpChunk(t *testing.T) {
 	try := func(a, b string, exp int) {
 		result := cmpChunk(a, b)
-		require.Equal(t, exp, result)
+		must.Eq(t, exp, result)
 	}
 
 	try("alpha", "alpha", 0)
@@ -132,7 +132,7 @@ func Test_cmpChunk(t *testing.T) {
 func Test_cmpPre(t *testing.T) {
 	try := func(a, b string, exp bool) {
 		result := cmpPreRelease(a, b)
-		require.Equal(t, exp, result)
+		must.Eq(t, exp, result)
 	}
 
 	try("", "alpha", false)
@@ -182,13 +182,12 @@ func Test_Sort_BySemver_preReleases(t *testing.T) {
 	}
 
 	sort.Sort(BySemver(tags))
-
-	require.Equal(t, expected, tags)
+	must.Eq(t, expected, tags)
 }
 
 func load(t *testing.T, filename string) []Tag {
 	f, err := os.Open(filename)
-	require.NoError(t, err)
+	must.NoError(t, err)
 	defer ignore.Close(f)
 
 	return parse(t, f)
@@ -213,15 +212,17 @@ func testFile(t *testing.T, input, expected string) {
 	orig := load(t, filepath.Join("hack", input))
 	exp := load(t, filepath.Join("hack", expected))
 
-	result := make([]Tag, len(orig))
-	copy(result, orig)
+	result := make([]Tag, 0, len(orig))
+	for _, tag := range orig {
+		result = append(result, tag)
+	}
 	sort.Sort(BySemver(result))
 
 	for i := 0; i < len(orig); i++ {
 		a, b, c := orig[i], exp[i], result[i]
 		triple := fmt.Sprintf("(%s, %s | %s)", b, c, a)
 		t.Logf("triple[%d]: %s", i, triple)
-		if b != c {
+		if !b.Equal(c) {
 			t.Errorf("  out of order tag %s", triple)
 		}
 	}
