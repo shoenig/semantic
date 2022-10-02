@@ -158,10 +158,6 @@ func (t Tag) Equal(o Tag) bool {
 }
 
 func (t Tag) String() string {
-	if t == empty {
-		return "<empty>"
-	}
-
 	base := fmt.Sprintf(
 		"v%d.%d.%d",
 		t.Major,
