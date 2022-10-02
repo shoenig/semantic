@@ -1,7 +1,7 @@
 // Package semantic provides utilities for parsing and creating semver2.0 tags.
 //
 // For more information, see https://semver.org/
-package semantic // import "gophers.dev/pkgs/semantic"
+package semantic
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"gophers.dev/pkgs/regexplus"
+	"github.com/shoenig/regexplus"
 )
 
 var (
@@ -28,8 +28,9 @@ var (
 // the major, minor, and patch version levels.
 //
 // Examples of a basic tag:
-//   v1.0.0
-//   v3.20.100
+//
+//	v1.0.0
+//	v3.20.100
 func New(major, minor, patch int) Tag {
 	return New3(major, minor, patch, "", "")
 }
@@ -41,8 +42,9 @@ func New(major, minor, patch int) Tag {
 // denoted with a '-' prefix.
 //
 // Examples of a tag with "pre-release" information:
-//   v1.0.0-alpha
-//   v1.0.0-rc1
+//
+//	v1.0.0-alpha
+//	v1.0.0-rc1
 func New2(major, minor, patch int, preRelease string) Tag {
 	return New3(major, minor, patch, preRelease, "")
 }
@@ -57,9 +59,10 @@ func New2(major, minor, patch int, preRelease string) Tag {
 // denoted with a '+' prefix.
 //
 // Examples of a tag with "pre-release" and "build-metadata" information:
-//   v1.0.0-beta+exp.sha.5114f85
-//   v1.0.0-rc1+20130313144700
-//   1.0.0-alpha+001
+//
+//	v1.0.0-beta+exp.sha.5114f85
+//	v1.0.0-rc1+20130313144700
+//	1.0.0-alpha+001
 func New3(major, minor, patch int, preRelease, buildMetadata string) Tag {
 	return Tag{
 		Major:         major,
@@ -77,8 +80,9 @@ func New3(major, minor, patch int, preRelease, buildMetadata string) Tag {
 // denoted with a '+' prefix.
 //
 // Examples of a tag with "build-metadata" information:
-//   v1.0.0+exp.sha.5114f85
-//   v1.0.0+20130313144700
+//
+//	v1.0.0+exp.sha.5114f85
+//	v1.0.0+20130313144700
 func New4(major, minor, patch int, buildMetadata string) Tag {
 	return New3(major, minor, patch, "", buildMetadata)
 }
@@ -89,22 +93,24 @@ func normalize(s string) string {
 	return noPlus
 }
 
+var empty = Tag{}
+
 func Parse(s string) (Tag, bool) {
 	matches := regexplus.FindNamedSubmatches(semverRe, s)
 
 	major, exists := matches["major"]
 	if !exists {
-		return Tag{}, false
+		return empty, false
 	}
 
 	minor, exists := matches["minor"]
 	if !exists {
-		return Tag{}, false
+		return empty, false
 	}
 
 	patch, exists := matches["patch"]
 	if !exists {
-		return Tag{}, false
+		return empty, false
 	}
 
 	preRelease := matches["pr"]
@@ -135,7 +141,27 @@ type Tag struct {
 	BuildMetadata string
 }
 
+func (t Tag) Equal(o Tag) bool {
+	switch {
+	case t.Major != o.Major:
+		return false
+	case t.Minor != o.Minor:
+		return false
+	case t.Patch != o.Patch:
+		return false
+	case t.PreRelease != o.PreRelease:
+		return false
+	case t.BuildMetadata != o.BuildMetadata:
+		return false
+	}
+	return true
+}
+
 func (t Tag) String() string {
+	if t == empty {
+		return "<empty>"
+	}
+
 	base := fmt.Sprintf(
 		"v%d.%d.%d",
 		t.Major,
@@ -249,9 +275,10 @@ func min(a, b int) int {
 }
 
 // returns:
-//   -1 if a < b
-//    0 if a == b
-//    1 if a > b
+//
+//	-1 if a < b
+//	 0 if a == b
+//	 1 if a > b
 func cmpChunk(a, b string) int {
 	aIsNumber := isNumeric(a)
 	bIsNumber := isNumeric(b)
